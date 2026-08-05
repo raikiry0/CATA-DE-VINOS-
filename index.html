@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" >
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -89,9 +89,25 @@
   .card h2{
     font-family:'Fraunces', serif;
     font-size:18px;font-weight:600;
-    margin:0 0 4px;color:var(--wine-800);
+    margin:0;color:var(--wine-800);
     display:flex;align-items:center;gap:9px;
   }
+  .card-head{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    cursor:pointer;user-select:none;padding:2px 0 4px;margin:0 0 4px;
+  }
+  .card-head-right{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+  .click-hint{
+    font-size:11.5px;color:var(--text-muted);opacity:0.55;
+    font-style:italic;white-space:nowrap;font-family:'Lora',serif;
+  }
+  .chevron{
+    width:18px;height:18px;color:var(--wine-700);flex:0 0 auto;
+    transition:transform .2s ease;
+  }
+  .chevron.open{transform:rotate(180deg);}
+  .card-collapse{display:none;}
+  .card-collapse.open{display:block;}
   .card h2 .num{
     display:inline-flex;align-items:center;justify-content:center;
     width:24px;height:24px;border-radius:50%;
@@ -362,6 +378,21 @@ function renderCriterion(section, c){
   </div>`;
 }
 
+/* ---------- Collapsible sections ---------- */
+let sectionOpen = {datos:true, visual:false, olfativa:false, gustativa:false, terroir:false, armonia:false};
+function sectionHeader(key, num, title){
+  const open = !!sectionOpen[key];
+  return `
+    <div class="card-head" data-toggle-section="${key}">
+      <h2><span class="num">${num}</span>${esc(title)}</h2>
+      <div class="card-head-right">
+        ${!open ? '<span class="click-hint">hacer clic para desplegar</span>' : ''}
+        <svg class="chevron ${open?'open':''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>`;
+}
+function collapseCls(key){ return sectionOpen[key] ? "card-collapse open" : "card-collapse"; }
+
 /* ---------- Render: Nueva cata form ---------- */
 function renderNueva(){
   const s = state;
@@ -370,7 +401,8 @@ function renderNueva(){
 
   document.getElementById("viewNueva").innerHTML = `
     <div class="card">
-      <h2><span class="num">1</span>Datos de la cata</h2>
+      ${sectionHeader('datos', 1, 'Datos de la cata')}
+      <div class="${collapseCls('datos')}">
       <p class="desc">Completá los datos generales del vino y de quien cata.</p>
       <div class="grid2">
         <div class="field"><label class="req">Catado por</label>
@@ -398,16 +430,20 @@ function renderNueva(){
           </select>
         </div>
       </div>
+      </div>
     </div>
 
     <div class="card">
-      <h2><span class="num">2</span>Fase Visual</h2>
+      ${sectionHeader('visual', 2, 'Fase Visual')}
+      <div class="${collapseCls('visual')}">
       <p class="desc">Copa incolora sobre fondo blanco y buena iluminación.</p>
       ${VISUAL_CRITERIA.map(c=>renderCriterion("visual", c)).join("")}
+      </div>
     </div>
 
     <div class="card">
-      <h2><span class="num">3</span>Fase Olfativa</h2>
+      ${sectionHeader('olfativa', 3, 'Fase Olfativa')}
+      <div class="${collapseCls('olfativa')}">
       <p class="desc">Primero con la copa detenida y luego agitándola suavemente.</p>
       ${OLFATIVA_CRITERIA.map(c=>renderCriterion("olfativa", c)).join("")}
       <div class="criterion">
@@ -423,10 +459,12 @@ function renderNueva(){
         <label>Aromas destacables</label>
         <input type="text" data-bind="olfativa.aromasDestacables" value="${esc(s.olfativa.aromasDestacables)}" placeholder="Ej: frutos rojos, vainilla, cuero...">
       </div>
+      </div>
     </div>
 
     <div class="card">
-      <h2><span class="num">4</span>Fase Gustativa</h2>
+      ${sectionHeader('gustativa', 4, 'Fase Gustativa')}
+      <div class="${collapseCls('gustativa')}">
       <p class="desc">Se confirma en boca lo percibido en nariz y se analiza el equilibrio.</p>
       ${GUSTATIVA_CRITERIA_BASE.map(c=>renderCriterion("gustativa", c)).join("")}
       ${showTaninos ? renderCriterion("gustativa", TANINOS_CRITERIO) : ""}
@@ -435,10 +473,12 @@ function renderNueva(){
         <label>Sensaciones</label>
         <input type="text" data-bind="gustativa.sensaciones" value="${esc(s.gustativa.sensaciones)}" placeholder="Otras sensaciones en boca">
       </div>
+      </div>
     </div>
 
     <div class="card">
-      <h2><span class="num">5</span>Terroir y sommeliería</h2>
+      ${sectionHeader('terroir', 5, 'Terroir y sommeliería')}
+      <div class="${collapseCls('terroir')}">
       <div class="field"><label>Terroir / zona de origen</label>
         <input type="text" data-bind="contextual.terroir" value="${esc(s.contextual.terroir)}" placeholder="Ej: Luján de Cuyo, Gualtallary, Patagonia..."></div>
       <div class="grid2">
@@ -449,10 +489,12 @@ function renderNueva(){
         <div class="field"><label>Maridaje sugerido</label>
           <input type="text" data-bind="contextual.maridaje" value="${esc(s.contextual.maridaje)}" placeholder="Ej: carnes rojas"></div>
       </div>
+      </div>
     </div>
 
     <div class="card">
-      <h2><span class="num">6</span>Armonía global</h2>
+      ${sectionHeader('armonia', 6, 'Armonía global')}
+      <div class="${collapseCls('armonia')}">
       <div class="criterion" style="padding-top:2px;border-top:none;" data-path="armonia">
         <div class="stamps">
           ${RATING_LEVELS.map(lvl => `
@@ -464,6 +506,7 @@ function renderNueva(){
       <div class="field" style="padding-top:8px;">
         <label>Comentarios de la cata</label>
         <textarea data-bind="comentarios" placeholder="Notas finales, impresión general...">${esc(s.comentarios)}</textarea>
+      </div>
       </div>
     </div>
 
@@ -507,6 +550,13 @@ function wireNuevaEvents(){
     el.addEventListener("input", ()=>{
       const path = el.getAttribute("data-set-note");
       get(path).o = el.value;
+    });
+  });
+  root.querySelectorAll("[data-toggle-section]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const key = el.getAttribute("data-toggle-section");
+      sectionOpen[key] = !sectionOpen[key];
+      renderNueva();
     });
   });
   document.getElementById("btnGuardar").addEventListener("click", guardarCata);

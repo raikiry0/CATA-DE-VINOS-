@@ -243,6 +243,18 @@
   }
   .toast.show{opacity:1;}
   .req::after{content:' *';color:var(--wine-600);}
+  .autosave-status{
+    display:flex;align-items:center;gap:6px;
+    font-size:12px;color:var(--text-muted);font-family:'Lora',serif;
+    min-height:18px;margin:-6px 0 14px 2px;transition:opacity .2s ease;
+  }
+  .autosave-status .adot{
+    width:7px;height:7px;border-radius:50%;background:var(--gold);flex:0 0 auto;
+  }
+  .autosave-status.saved .adot{background:#6E9B5A;}
+  .autosave-status.pending .adot{background:var(--gold);animation:pulse 1s infinite ease-in-out;}
+  .autosave-status.error .adot{background:#B4453D;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
 </style>
 </head>
 <body>
@@ -265,6 +277,7 @@
     <button id="tabMis">Mis catas <span id="misCount"></span></button>
   </nav>
 
+  <div id="autosaveStatus" class="autosave-status"></div>
   <div id="viewNueva"></div>
   <div id="viewMis" style="display:none"></div>
 </div>
@@ -275,6 +288,20 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* ---------- Storage safety net ----------
+   Si el almacenamiento persistente no está disponible en este entorno,
+   usamos un respaldo en memoria para que guardar nunca falle
+   (aunque en ese caso no persista al recargar la página). */
+if(typeof window.storage === "undefined" || !window.storage){
+  const __mem = {};
+  window.storage = {
+    async get(key){ return (key in __mem) ? {key, value:__mem[key], shared:false} : null; },
+    async set(key, value){ __mem[key] = value; return {key, value, shared:false}; },
+    async delete(key){ const existed = key in __mem; delete __mem[key]; return {key, deleted:existed, shared:false}; },
+    async list(prefix){ const keys = Object.keys(__mem).filter(k => !prefix || k.startsWith(prefix)); return {keys, prefix}; }
+  };
+}
+
 /* ---------- Config ---------- */
 const RATING_LEVELS = ["Aceptable","Bueno","Muy Bueno","Excelente"];
 const STAMP_COLOR = {"Aceptable":"var(--stamp-1)","Bueno":"var(--stamp-2)","Muy Bueno":"var(--stamp-3)","Excelente":"var(--stamp-4)"};
@@ -338,6 +365,7 @@ function freshState(){
 }
 let state = freshState();
 let openNotes = {}; // key -> bool
+let currentDraft = {id:null, numero:null}; // cata en curso para autoguardado
 
 /* ---------- Helpers ---------- */
 function get(path){
@@ -405,7 +433,7 @@ function renderNueva(){
       <div class="${collapseCls('datos')}">
       <p class="desc">Completá los datos generales del vino y de quien cata.</p>
       <div class="grid2">
-        <div class="field"><label class="req">Catado por</label>
+        <div class="field"><label>Catado por</label>
           <input type="text" data-bind="cabecera.catadoPor" value="${esc(s.cabecera.catadoPor)}" placeholder="Tu nombre"></div>
         <div class="field"><label>Fecha</label>
           <input type="date" data-bind="cabecera.fecha" value="${esc(s.cabecera.fecha)}"></div>
@@ -511,22 +539,28 @@ function renderNueva(){
     </div>
 
     <div class="save-bar">
-      <button class="btn btn-primary" id="btnGuardar">Guardar cata</button>
+      <button class="btn btn-primary" id="btnGuardar">Finalizar cata y empezar otra</button>
       <div class="save-hint" id="saveHint"></div>
     </div>
   `;
   wireNuevaEvents();
   updateSaveHint();
+  renderAutosaveStatus();
 }
 
 function wireNuevaEvents(){
   const root = document.getElementById("viewNueva");
   root.querySelectorAll("[data-bind]").forEach(el=>{
-    el.addEventListener("input", ()=>{ set(el.getAttribute("data-bind"), el.value); if(el.getAttribute("data-bind")==="cabecera.tipoVino"){ renderNueva(); } updateSaveHint(); });
-    el.addEventListener("change", ()=>{ set(el.getAttribute("data-bind"), el.value); });
+    el.addEventListener("input", ()=>{
+      set(el.getAttribute("data-bind"), el.value);
+      if(el.getAttribute("data-bind")==="cabecera.tipoVino"){ renderNueva(); }
+      updateSaveHint();
+      scheduleAutosave();
+    });
+    el.addEventListener("change", ()=>{ set(el.getAttribute("data-bind"), el.value); scheduleAutosave(); });
   });
   root.querySelectorAll("[data-bind-check]").forEach(el=>{
-    el.addEventListener("change", ()=>{ set(el.getAttribute("data-bind-check"), el.checked); });
+    el.addEventListener("change", ()=>{ set(el.getAttribute("data-bind-check"), el.checked); scheduleAutosave(); });
   });
   root.querySelectorAll("[data-set-rating]").forEach(el=>{
     el.addEventListener("click", ()=>{
@@ -537,6 +571,7 @@ function wireNuevaEvents(){
       else { cur.r = (cur.r===lvl)?null:lvl; }
       renderNueva();
       updateSaveHint();
+      scheduleAutosave();
     });
   });
   root.querySelectorAll("[data-note-toggle]").forEach(el=>{
@@ -550,6 +585,7 @@ function wireNuevaEvents(){
     el.addEventListener("input", ()=>{
       const path = el.getAttribute("data-set-note");
       get(path).o = el.value;
+      scheduleAutosave();
     });
   });
   root.querySelectorAll("[data-toggle-section]").forEach(el=>{
@@ -559,15 +595,46 @@ function wireNuevaEvents(){
       renderNueva();
     });
   });
-  document.getElementById("btnGuardar").addEventListener("click", guardarCata);
+  document.getElementById("btnGuardar").addEventListener("click", finalizarCata);
 }
 
 function updateSaveHint(){
   const btn = document.getElementById("btnGuardar");
   const hint = document.getElementById("saveHint");
-  const ok = state.cabecera.catadoPor.trim() && state.cabecera.nombreVino.trim();
+  const ok = !!state.cabecera.nombreVino.trim();
   if(btn) btn.disabled = !ok;
-  if(hint) hint.textContent = ok ? "" : "Completá al menos \"Catado por\" y \"Nombre del vino\" para guardar.";
+  if(hint) hint.textContent = ok ? "" : "Escribí al menos el nombre del vino: el resto se guarda solo, a tu ritmo.";
+}
+
+/* ---------- Autoguardado ---------- */
+let autosaveTimer = null;
+function scheduleAutosave(){
+  renderAutosaveStatus("pending");
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(()=>{ ensureSaved().catch(e=>console.error(e)); }, 700);
+}
+
+function renderAutosaveStatus(mode){
+  const el = document.getElementById("autosaveStatus");
+  if(!el) return;
+  const nombre = state.cabecera.nombreVino.trim();
+  if(!nombre && !currentDraft.id){
+    el.className = "autosave-status";
+    el.innerHTML = "";
+    return;
+  }
+  if(mode==="pending"){
+    el.className = "autosave-status pending";
+    el.innerHTML = `<span class="adot"></span> Guardando...`;
+  } else if(mode==="error"){
+    el.className = "autosave-status error";
+    el.innerHTML = `<span class="adot"></span> No se pudo guardar automáticamente`;
+  } else {
+    el.className = "autosave-status saved";
+    el.innerHTML = currentDraft.numero
+      ? `<span class="adot"></span> Cata N° ${currentDraft.numero} · guardado automáticamente`
+      : "";
+  }
 }
 
 /* ---------- Storage ---------- */
@@ -583,29 +650,54 @@ async function nextCataNumber(){
   }
 }
 
-async function guardarCata(){
+/* Guarda (crea o actualiza) la cata en curso. Se llama sola apenas hay
+   nombre de vino cargado, y también al finalizar. */
+async function ensureSaved(){
+  const nombre = state.cabecera.nombreVino.trim();
+  if(!nombre) return null;
+  try{
+    if(!currentDraft.id){
+      currentDraft.numero = await nextCataNumber();
+      currentDraft.id = Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+    }
+    const record = JSON.parse(JSON.stringify(state));
+    record.id = currentDraft.id;
+    record.numero = currentDraft.numero;
+    record.guardadoEn = new Date().toISOString();
+    await window.storage.set("cata:"+currentDraft.id, JSON.stringify(record), false);
+    renderAutosaveStatus("saved");
+    return record;
+  }catch(e){
+    console.error(e);
+    renderAutosaveStatus("error");
+    return null;
+  }
+}
+
+async function finalizarCata(){
   const btn = document.getElementById("btnGuardar");
   btn.disabled = true; btn.textContent = "Guardando...";
-  try{
-    const numero = await nextCataNumber();
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-    const record = JSON.parse(JSON.stringify(state));
-    record.id = id;
-    record.numero = numero;
-    record.guardadoEn = new Date().toISOString();
-    await window.storage.set("cata:"+id, JSON.stringify(record), false);
-    showToast("Cata N° "+numero+" guardada");
+  const nombre = state.cabecera.nombreVino.trim();
+  if(!nombre){
+    showToast("Escribí al menos el nombre del vino para guardar.");
+    btn.disabled = false; btn.textContent = "Finalizar cata y empezar otra";
+    return;
+  }
+  clearTimeout(autosaveTimer);
+  const record = await ensureSaved();
+  if(record){
+    showToast("Cata N° "+record.numero+" guardada");
     state = freshState();
+    currentDraft = {id:null, numero:null};
     openNotes = {};
     renderNueva();
     await renderMisCatas();
     switchTab("mis");
-  }catch(e){
-    console.error(e);
-    showToast("No se pudo guardar. Intentá de nuevo.");
+  } else {
+    showToast("No se pudo guardar. Revisá tu conexión e intentá de nuevo.");
     btn.disabled = false;
   }
-  btn.textContent = "Guardar cata";
+  btn.textContent = "Finalizar cata y empezar otra";
 }
 
 async function listCatas(){
@@ -944,6 +1036,7 @@ function switchTab(which){
   document.getElementById("tabMis").classList.toggle("active", !isNueva);
   document.getElementById("viewNueva").style.display = isNueva ? "block":"none";
   document.getElementById("viewMis").style.display = isNueva ? "none":"block";
+  document.getElementById("autosaveStatus").style.display = isNueva ? "flex":"none";
 }
 document.getElementById("tabNueva").addEventListener("click", ()=>switchTab("nueva"));
 document.getElementById("tabMis").addEventListener("click", ()=>{ switchTab("mis"); renderMisCatas(); });

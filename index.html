@@ -152,19 +152,8 @@
     font-size:12.5px;color:var(--text-muted);font-family:'Lora',serif;
     transition:all .15s ease;
   }
-  .stamp .dot{width:14px;height:14px;border-radius:50%;background:#e9dfd2;border:1px solid var(--border);flex:0 0 auto;}
-  .stamp[data-level="Aceptable"] .dot{background:var(--stamp-1);}
-  .stamp[data-level="Bueno"] .dot{background:var(--stamp-2);}
-  .stamp[data-level="Muy Bueno"] .dot{background:var(--stamp-3);}
-  .stamp[data-level="Excelente"] .dot{background:var(--stamp-4);}
-  .stamp.selected{
-    border-color:transparent;color:#fff;font-weight:600;
-  }
-  .stamp.selected[data-level="Aceptable"]{background:var(--stamp-1);color:var(--wine-900);}
-  .stamp.selected[data-level="Bueno"]{background:var(--stamp-2);color:#fff;}
-  .stamp.selected[data-level="Muy Bueno"]{background:var(--stamp-3);color:#fff;}
-  .stamp.selected[data-level="Excelente"]{background:var(--stamp-4);color:#fff;}
-  .stamp.selected .dot{background:#fff;border-color:#fff;}
+  .stamp .dot{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,0.08);flex:0 0 auto;}
+  .stamp.selected{font-weight:600;}
   .note-box{display:none;margin-top:10px;}
   .note-box.open{display:block;}
   .note-box input{
@@ -207,12 +196,6 @@
   }
   .cata-name{font-family:'Fraunces',serif;font-weight:600;font-size:17px;color:var(--wine-900);}
   .cata-meta{font-size:12.5px;color:var(--text-muted);margin-top:3px;}
-  .cata-armonia{
-    flex:0 0 auto;text-align:right;
-  }
-  .cata-armonia .dot-big{
-    width:16px;height:16px;border-radius:50%;display:inline-block;margin-left:3px;
-  }
   .cata-actions{display:flex;gap:8px;margin-top:12px;}
   .icon-btn{
     display:inline-flex;align-items:center;gap:6px;
@@ -303,21 +286,18 @@ if(typeof window.storage === "undefined" || !window.storage){
 }
 
 /* ---------- Config ---------- */
-const RATING_LEVELS = ["Aceptable","Bueno","Muy Bueno","Excelente"];
-const STAMP_COLOR = {"Aceptable":"var(--stamp-1)","Bueno":"var(--stamp-2)","Muy Bueno":"var(--stamp-3)","Excelente":"var(--stamp-4)"};
-const STAMP_HEX = {"Aceptable":"#E7C3AE","Bueno":"#CF8C6E","Muy Bueno":"#A4445B","Excelente":"#6E1F3A"};
+const STAMP_STOPS = ["#E7C3AE","#CF8C6E","#A4445B","#6E1F3A"];
+function gradientColor(i, n){
+  if(n<=1) return STAMP_STOPS[0];
+  const idx = Math.round(i*(STAMP_STOPS.length-1)/(n-1));
+  return STAMP_STOPS[idx];
+}
+function textColorFor(i, n){
+  const idx = n<=1 ? 0 : Math.round(i*(STAMP_STOPS.length-1)/(n-1));
+  return idx===0 ? "var(--wine-900)" : "#fff";
+}
 
 const TIPOS_VINO = ["Tinto","Blanco","Rosado","Espumante","Dulce / Generoso"];
-const COPAS = [
-  "Copa ISO (normalizada)",
-  "Copa Bordeaux / Burdeos",
-  "Copa Borgoña",
-  "Copa Universal",
-  "Copa Flauta (espumante)",
-  "Copa Tulipán (espumante)",
-  "Copa para blancos",
-  "Otra"
-];
 const TEMP_SUGERIDA = {
   "Tinto":"16–18°C",
   "Blanco":"8–12°C",
@@ -327,24 +307,24 @@ const TEMP_SUGERIDA = {
 };
 
 const VISUAL_CRITERIA = [
-  {key:"limpieza", label:"Limpieza y Brillo", hint:"Límpido y sin turbidez (salvo vinos naturales o sin filtrar). El brillo denota una correcta acidez."},
-  {key:"color", label:"Color e Intensidad", hint:"Tintos jóvenes: violáceo/rubí. Tintos de guarda: teja/granate. Blancos: verdoso a dorado."},
-  {key:"lagrimas", label:"Lágrimas o Piernas", hint:"Indican viscosidad: grado alcohólico y presencia de glicerina o azúcares residuales."}
+  {key:"limpio", label:"Limpio / Brillante", hint:"", options:["Baja","Media Baja","Alta","Media Alta"]},
+  {key:"color", label:"Color / Intensidad", hint:"", options:["Baja","Media Baja","Alta","Media Alta"]},
+  {key:"lagrimas", label:"Lágrimas o Piernas", hint:"Indica cuerpo y grado alcohólico.", options:["Ligeras","Densas","Coloreadas"]}
 ];
 const OLFATIVA_CRITERIA = [
-  {key:"franqueza", label:"Franqueza (sin defectos)", hint:"Vino sano: sin olor a corcho, oxidación excesiva o acidez volátil alta."},
-  {key:"intensidad", label:"Intensidad Aromática", hint:"Potencia y expresividad de los aromas."},
-  {key:"complejidad", label:"Complejidad y Desarrollo", hint:"Riqueza y evolución de las distintas familias aromáticas presentes."}
+  {key:"franqueza", label:"Franqueza", hint:"", options:["Baja","Media Baja","Alta","Media Alta"]},
+  {key:"intensidad", label:"Intensidad Aromática", hint:"", options:["Baja","Media Baja","Alta","Media Alta"]},
+  {key:"complejidad", label:"Complejidad y Desarrollo", hint:"", options:["Joven","En desarrollo","Evolucionado"]}
 ];
 const GUSTATIVA_CRITERIA_BASE = [
-  {key:"ataque", label:"Ataque", hint:"Primera impresión al entrar en contacto con el paladar (dulzor, frescura inicial)."},
-  {key:"cuerpo", label:"Estructura y Cuerpo", hint:"Densidad y corpulencia del vino en la boca."},
-  {key:"acidez", label:"Acidez", hint:"Frescura del vino. En vinos de altura suele ser viva, vibrante y equilibrada."}
+  {key:"ataque", label:"Ataque", hint:"", options:["Seco","Semi seco","Dulce"]},
+  {key:"cuerpo", label:"Estructura y Cuerpo", hint:"", options:["Ligero","Medio","Estructurado"]},
+  {key:"acidez", label:"Acidez", hint:"", options:["Baja","Media","Alta"]}
 ];
-const TANINOS_CRITERIO = {key:"taninos", label:"Taninos", hint:"Cantidad, textura y madurez. Se buscan taninos amables, sedosos y redondos."};
+const TANINOS_CRITERIO = {key:"taninos", label:"Taninos", hint:"", options:["Suaves","Medios","Firmes","Marcados"]};
 const GUSTATIVA_CRITERIA_FINAL = [
-  {key:"alcohol", label:"Alcohol", hint:"Sensación de calidez, en armonía e integrada con el cuerpo del vino."},
-  {key:"persistencia", label:"Persistencia (retrogusto)", hint:"Tiempo que los sabores y aromas permanecen en el paladar tras la deglución."}
+  {key:"alcohol", label:"Alcohol", hint:"", options:["Bajo","Medio","Alto"]},
+  {key:"persistencia", label:"Persistencia (retrogusto)", hint:"", options:["Corta","Media","Larga"]}
 ];
 
 /* ---------- State ---------- */
@@ -352,14 +332,13 @@ function emptyCriterion(){ return {r:null, o:""}; }
 function freshState(){
   const today = new Date().toISOString().slice(0,10);
   return {
-    cabecera:{catadoPor:"", fecha:today, nombreVino:"", bodega:"", tipoVino:"Tinto", anada:"", copa:COPAS[1]},
-    visual:{ limpieza:emptyCriterion(), color:emptyCriterion(), lagrimas:emptyCriterion() },
+    cabecera:{catadoPor:"", fecha:today, nombreVino:"", bodega:"", tipoVino:"Tinto", anada:""},
+    visual:{ limpio:emptyCriterion(), color:emptyCriterion(), lagrimas:emptyCriterion() },
     olfativa:{ franqueza:emptyCriterion(), intensidad:emptyCriterion(), complejidad:emptyCriterion(),
-      primarios:false, secundarios:false, terciarios:false, aromasDestacables:"" },
+      aromasDestacables:"" },
     gustativa:{ ataque:emptyCriterion(), cuerpo:emptyCriterion(), acidez:emptyCriterion(),
       taninos:emptyCriterion(), alcohol:emptyCriterion(), persistencia:emptyCriterion(), sensaciones:"" },
     contextual:{ terroir:"", temperatura:"", maridaje:"" },
-    armonia: emptyCriterion(),
     comentarios:""
   };
 }
@@ -385,20 +364,27 @@ function renderCriterion(section, c){
   const data = get(path);
   const noteId = path+"_note";
   const isOpen = !!openNotes[noteId] || (data.o && data.o.length>0);
+  const n = c.options.length;
   return `
   <div class="criterion" data-path="${path}">
     <div class="crit-head">
       <div>
         <div class="crit-label">${esc(c.label)}</div>
-        <div class="crit-hint">${esc(c.hint)}</div>
+        ${c.hint ? `<div class="crit-hint">${esc(c.hint)}</div>` : ""}
       </div>
       <button type="button" class="note-toggle" data-note-toggle="${noteId}">${isOpen ? "ocultar nota" : "+ nota"}</button>
     </div>
     <div class="stamps">
-      ${RATING_LEVELS.map(lvl => `
-        <div class="stamp ${data.r===lvl?'selected':''}" data-level="${lvl}" data-set-rating="${path}">
-          <span class="dot"></span>${lvl}
-        </div>`).join("")}
+      ${c.options.map((lvl,i) => {
+        const color = gradientColor(i,n);
+        const textColor = textColorFor(i,n);
+        const selected = data.r===lvl;
+        const pillStyle = selected ? `background:${color};color:${textColor};border-color:transparent;` : "";
+        return `
+        <div class="stamp ${selected?'selected':''}" style="${pillStyle}" data-level="${esc(lvl)}" data-set-rating="${path}">
+          <span class="dot" style="background:${color}"></span>${esc(lvl)}
+        </div>`;
+      }).join("")}
     </div>
     <div class="note-box ${isOpen?'open':''}" id="box_${noteId}">
       <input type="text" placeholder="Observación (opcional)" value="${esc(data.o)}" data-set-note="${path}">
@@ -407,7 +393,7 @@ function renderCriterion(section, c){
 }
 
 /* ---------- Collapsible sections ---------- */
-let sectionOpen = {datos:true, visual:false, olfativa:false, gustativa:false, terroir:false, armonia:false};
+let sectionOpen = {datos:true, visual:false, olfativa:false, gustativa:false, terroir:false};
 function sectionHeader(key, num, title){
   const open = !!sectionOpen[key];
   return `
@@ -446,17 +432,10 @@ function renderNueva(){
         <div class="field"><label>Añada</label>
           <input type="text" data-bind="cabecera.anada" value="${esc(s.cabecera.anada)}" placeholder="Ej: 2022"></div>
       </div>
-      <div class="grid2">
-        <div class="field"><label>Tipo de vino</label>
-          <select data-bind="cabecera.tipoVino">
-            ${TIPOS_VINO.map(t=>`<option value="${t}" ${s.cabecera.tipoVino===t?'selected':''}>${t}</option>`).join("")}
-          </select>
-        </div>
-        <div class="field"><label>Copa utilizada</label>
-          <select data-bind="cabecera.copa">
-            ${COPAS.map(c=>`<option value="${c}" ${s.cabecera.copa===c?'selected':''}>${c}</option>`).join("")}
-          </select>
-        </div>
+      <div class="field"><label>Tipo de vino</label>
+        <select data-bind="cabecera.tipoVino">
+          ${TIPOS_VINO.map(t=>`<option value="${t}" ${s.cabecera.tipoVino===t?'selected':''}>${t}</option>`).join("")}
+        </select>
       </div>
       </div>
     </div>
@@ -474,16 +453,7 @@ function renderNueva(){
       <div class="${collapseCls('olfativa')}">
       <p class="desc">Primero con la copa detenida y luego agitándola suavemente.</p>
       ${OLFATIVA_CRITERIA.map(c=>renderCriterion("olfativa", c)).join("")}
-      <div class="criterion">
-        <div class="crit-label">Familias Aromáticas percibidas</div>
-        <div class="crit-hint">Primarios: uva/terruño · Secundarios: fermentación · Terciarios: crianza en madera/botella.</div>
-        <div class="checks">
-          <label class="check"><input type="checkbox" data-bind-check="olfativa.primarios" ${s.olfativa.primarios?'checked':''}>Primarios</label>
-          <label class="check"><input type="checkbox" data-bind-check="olfativa.secundarios" ${s.olfativa.secundarios?'checked':''}>Secundarios</label>
-          <label class="check"><input type="checkbox" data-bind-check="olfativa.terciarios" ${s.olfativa.terciarios?'checked':''}>Terciarios</label>
-        </div>
-      </div>
-      <div class="field" style="padding-top:10px;">
+      <div class="field" style="padding-top:6px;">
         <label>Aromas destacables</label>
         <input type="text" data-bind="olfativa.aromasDestacables" value="${esc(s.olfativa.aromasDestacables)}" placeholder="Ej: frutos rojos, vainilla, cuero...">
       </div>
@@ -505,7 +475,7 @@ function renderNueva(){
     </div>
 
     <div class="card">
-      ${sectionHeader('terroir', 5, 'Terroir y sommeliería')}
+      ${sectionHeader('terroir', 5, 'Terroir y servicio')}
       <div class="${collapseCls('terroir')}">
       <div class="field"><label>Terroir / zona de origen</label>
         <input type="text" data-bind="contextual.terroir" value="${esc(s.contextual.terroir)}" placeholder="Ej: Luján de Cuyo, Gualtallary, Patagonia..."></div>
@@ -517,21 +487,7 @@ function renderNueva(){
         <div class="field"><label>Maridaje sugerido</label>
           <input type="text" data-bind="contextual.maridaje" value="${esc(s.contextual.maridaje)}" placeholder="Ej: carnes rojas"></div>
       </div>
-      </div>
-    </div>
-
-    <div class="card">
-      ${sectionHeader('armonia', 6, 'Armonía global')}
-      <div class="${collapseCls('armonia')}">
-      <div class="criterion" style="padding-top:2px;border-top:none;" data-path="armonia">
-        <div class="stamps">
-          ${RATING_LEVELS.map(lvl => `
-            <div class="stamp ${s.armonia.r===lvl?'selected':''}" data-level="${lvl}" data-set-rating="armonia">
-              <span class="dot"></span>${lvl}
-            </div>`).join("")}
-        </div>
-      </div>
-      <div class="field" style="padding-top:8px;">
+      <div class="field" style="padding-top:6px;">
         <label>Comentarios de la cata</label>
         <textarea data-bind="comentarios" placeholder="Notas finales, impresión general...">${esc(s.comentarios)}</textarea>
       </div>
@@ -567,8 +523,7 @@ function wireNuevaEvents(){
       const path = el.getAttribute("data-set-rating");
       const lvl = el.getAttribute("data-level");
       const cur = get(path);
-      if(path==="armonia"){ state.armonia.r = (state.armonia.r===lvl)?null:lvl; }
-      else { cur.r = (cur.r===lvl)?null:lvl; }
+      cur.r = (cur.r===lvl)?null:lvl;
       renderNueva();
       updateSaveHint();
       scheduleAutosave();
@@ -752,11 +707,7 @@ async function renderMisCatas(){
           <div class="cata-tag">Cata N° ${rec.numero}</div>
           <div class="cata-name">${esc(rec.cabecera.nombreVino || "Sin nombre")}</div>
           <div class="cata-meta">${esc(rec.cabecera.bodega||"")} ${rec.cabecera.anada?("· "+esc(rec.cabecera.anada)):""} · ${esc(rec.cabecera.tipoVino)}</div>
-          <div class="cata-meta">${esc(rec.cabecera.fecha)} · ${esc(rec.cabecera.catadoPor)}</div>
-        </div>
-        <div class="cata-armonia">
-          <div class="cata-meta">Armonía</div>
-          <span class="dot-big" style="background:${rec.armonia && rec.armonia.r ? STAMP_HEX[rec.armonia.r] : '#e6dccb'}"></span>
+          <div class="cata-meta">${esc(rec.cabecera.fecha)} ${rec.cabecera.catadoPor?("· "+esc(rec.cabecera.catadoPor)):""}</div>
         </div>
       </div>
       <div class="cata-actions">
@@ -802,14 +753,13 @@ function verCata(id, records){
   body.innerHTML = `
     <div class="cata-tag">Cata N° ${rec.numero}</div>
     <div class="cata-name" style="font-size:20px;margin-bottom:2px;">${esc(rec.cabecera.nombreVino)}</div>
-    <div class="cata-meta" style="margin-bottom:14px;">${esc(rec.cabecera.bodega||"")} ${rec.cabecera.anada?("· "+esc(rec.cabecera.anada)):""} · ${esc(rec.cabecera.tipoVino)} · ${esc(rec.cabecera.copa)}</div>
+    <div class="cata-meta" style="margin-bottom:14px;">${esc(rec.cabecera.bodega||"")} ${rec.cabecera.anada?("· "+esc(rec.cabecera.anada)):""} · ${esc(rec.cabecera.tipoVino)}</div>
 
     <div style="font-family:'Fraunces',serif;font-weight:600;color:var(--wine-700);font-size:13px;margin-bottom:6px;">FASE VISUAL</div>
     ${VISUAL_CRITERIA.map(c=>critRow(c, rec.visual[c.key])).join("")}
 
     <div style="font-family:'Fraunces',serif;font-weight:600;color:var(--wine-700);font-size:13px;margin:12px 0 6px;">FASE OLFATIVA</div>
     ${OLFATIVA_CRITERIA.map(c=>critRow(c, rec.olfativa[c.key])).join("")}
-    ${(rec.olfativa.primarios||rec.olfativa.secundarios||rec.olfativa.terciarios) ? `<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:6px;">Familias: ${[rec.olfativa.primarios&&"Primarios",rec.olfativa.secundarios&&"Secundarios",rec.olfativa.terciarios&&"Terciarios"].filter(Boolean).join(", ")}</div>`:""}
     ${rec.olfativa.aromasDestacables?`<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:6px;">Aromas destacables: ${esc(rec.olfativa.aromasDestacables)}</div>`:""}
 
     <div style="font-family:'Fraunces',serif;font-weight:600;color:var(--wine-700);font-size:13px;margin:12px 0 6px;">FASE GUSTATIVA</div>
@@ -819,14 +769,15 @@ function verCata(id, records){
     ${rec.gustativa.sensaciones?`<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:6px;">Sensaciones: ${esc(rec.gustativa.sensaciones)}</div>`:""}
 
     ${(rec.contextual.terroir||rec.contextual.temperatura||rec.contextual.maridaje) ? `
-    <div style="font-family:'Fraunces',serif;font-weight:600;color:var(--wine-700);font-size:13px;margin:12px 0 6px;">TERROIR Y SOMMELIERÍA</div>
+    <div style="font-family:'Fraunces',serif;font-weight:600;color:var(--wine-700);font-size:13px;margin:12px 0 6px;">TERROIR Y SERVICIO</div>
     ${rec.contextual.terroir?`<div style="font-size:12.5px;margin-bottom:4px;"><b>Terroir:</b> ${esc(rec.contextual.terroir)}</div>`:""}
     ${rec.contextual.temperatura?`<div style="font-size:12.5px;margin-bottom:4px;"><b>Temperatura:</b> ${esc(rec.contextual.temperatura)}</div>`:""}
     ${rec.contextual.maridaje?`<div style="font-size:12.5px;margin-bottom:4px;"><b>Maridaje:</b> ${esc(rec.contextual.maridaje)}</div>`:""}
     ` : ""}
 
-    <div style="font-family:'Fraunces',serif;font-weight:600;color:var(--wine-700);font-size:13px;margin:12px 0 6px;">ARMONÍA GLOBAL ${rec.armonia&&rec.armonia.r?('— '+rec.armonia.r):''}</div>
-    ${rec.comentarios?`<div style="font-size:13px;line-height:1.5;">${esc(rec.comentarios)}</div>`:""}
+    ${rec.comentarios?`
+    <div style="font-family:'Fraunces',serif;font-weight:600;color:var(--wine-700);font-size:13px;margin:12px 0 6px;">COMENTARIOS</div>
+    <div style="font-size:13px;line-height:1.5;">${esc(rec.comentarios)}</div>` : ""}
 
     <div class="modal-actions" style="margin-top:16px;">
       <button class="btn btn-ghost btn-sm" id="modalClose" style="flex:1;">Cerrar</button>
@@ -892,7 +843,7 @@ function buildCataCanvas(rec){
 
   ctx.fillStyle = "#8A6B72";
   ctx.font = "16px Georgia, serif";
-  ctx.fillText("Cata N° "+rec.numero+"   ·   "+rec.cabecera.fecha+"   ·   Catado por "+rec.cabecera.catadoPor+"   ·   "+rec.cabecera.copa, marginX, y);
+  ctx.fillText("Cata N° "+rec.numero+"   ·   "+rec.cabecera.fecha+(rec.cabecera.catadoPor?"   ·   Catado por "+rec.cabecera.catadoPor:""), marginX, y);
   y += 26;
 
   ctx.strokeStyle = "#E4CDB4";
@@ -905,14 +856,15 @@ function buildCataCanvas(rec){
     ctx.fillText(t, marginX, y);
     y += 30;
   }
-  function critLine(label, data){
+  function critLine(c, data){
     if(!data || (!data.r && !data.o)) return;
     ctx.fillStyle = "#3A1420";
     ctx.font = "600 16px Georgia, serif";
-    let str = label + (data.r ? "  —  "+data.r : "");
+    let str = c.label + (data.r ? "  —  "+data.r : "");
     ctx.fillText(str, marginX, y);
     if(data.r){
-      ctx.fillStyle = STAMP_HEX[data.r];
+      const idx = c.options.indexOf(data.r);
+      ctx.fillStyle = gradientColor(idx<0?0:idx, c.options.length);
       ctx.beginPath(); ctx.arc(marginX+contentW-14, y-6, 8, 0, Math.PI*2); ctx.fill();
     }
     y += 24;
@@ -934,33 +886,31 @@ function buildCataCanvas(rec){
   }
 
   sectionTitle("Fase Visual");
-  VISUAL_CRITERIA.forEach(c=>critLine(c.label, rec.visual[c.key]));
+  VISUAL_CRITERIA.forEach(c=>critLine(c, rec.visual[c.key]));
   y += 14;
 
   sectionTitle("Fase Olfativa");
-  OLFATIVA_CRITERIA.forEach(c=>critLine(c.label, rec.olfativa[c.key]));
-  const fam = [rec.olfativa.primarios&&"Primarios",rec.olfativa.secundarios&&"Secundarios",rec.olfativa.terciarios&&"Terciarios"].filter(Boolean).join(", ");
-  if(fam) textLine("Familias", fam);
+  OLFATIVA_CRITERIA.forEach(c=>critLine(c, rec.olfativa[c.key]));
   if(rec.olfativa.aromasDestacables) textLine("Aromas", rec.olfativa.aromasDestacables);
   y += 14;
 
   sectionTitle("Fase Gustativa");
-  GUSTATIVA_CRITERIA_BASE.forEach(c=>critLine(c.label, rec.gustativa[c.key]));
-  if(rec.cabecera.tipoVino==="Tinto") critLine(TANINOS_CRITERIO.label, rec.gustativa.taninos);
-  GUSTATIVA_CRITERIA_FINAL.forEach(c=>critLine(c.label, rec.gustativa[c.key]));
+  GUSTATIVA_CRITERIA_BASE.forEach(c=>critLine(c, rec.gustativa[c.key]));
+  if(rec.cabecera.tipoVino==="Tinto") critLine(TANINOS_CRITERIO, rec.gustativa.taninos);
+  GUSTATIVA_CRITERIA_FINAL.forEach(c=>critLine(c, rec.gustativa[c.key]));
   if(rec.gustativa.sensaciones) textLine("Sensaciones", rec.gustativa.sensaciones);
   y += 14;
 
   if(rec.contextual.terroir || rec.contextual.temperatura || rec.contextual.maridaje){
-    sectionTitle("Terroir y sommeliería");
+    sectionTitle("Terroir y servicio");
     textLine("Terroir", rec.contextual.terroir);
     textLine("Temperatura", rec.contextual.temperatura);
     textLine("Maridaje", rec.contextual.maridaje);
     y += 14;
   }
 
-  sectionTitle("Armonía Global"+(rec.armonia&&rec.armonia.r ? " — "+rec.armonia.r : ""));
   if(rec.comentarios){
+    sectionTitle("Comentarios");
     ctx.fillStyle = "#3A1420";
     ctx.font = "italic 16px Georgia, serif";
     y = wrapText(ctx, rec.comentarios, marginX, y, contentW, 22);
